@@ -91,8 +91,8 @@ func lookupCallback(i uint64) *callbackData {
 //export rawCallback
 func rawCallback(cbCookie unsafe.Pointer, raw unsafe.Pointer, rawSize C.int) {
 	callbackData := lookupCallback(uint64(uintptr(cbCookie)))
-	gb := C.GoBytes(raw, rawSize)
 	if uintptr(cbCookie) == 100 {
+		gb := C.GoBytes(raw, rawSize)
 		callbackData.receiverChan <- gb
 	}
 }
