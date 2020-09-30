@@ -47,6 +47,7 @@ type PerfMap struct {
 type callbackData struct {
 	receiverChan chan []byte
 	lostChan     chan uint64
+	handler func([]byte)
 }
 
 // BPF_PERF_READER_PAGE_CNT is the default page_cnt used per cpu ring buffer
@@ -91,7 +92,12 @@ func lookupCallback(i uint64) *callbackData {
 //export rawCallback
 func rawCallback(cbCookie unsafe.Pointer, raw unsafe.Pointer, rawSize C.int) {
 	callbackData := lookupCallback(uint64(uintptr(cbCookie)))
-	callbackData.receiverChan <- C.GoBytes(raw, rawSize)
+	if callbackData.handler != nil {
+		callbackData.handler(C.GoBytes(raw, rawSize))
+	}
+	if callbackData.receiverChan != nil {
+		callbackData.receiverChan <- C.GoBytes(raw, rawSize)
+	}
 }
 
 //export lostCallback
@@ -120,12 +126,12 @@ func determineHostByteOrder() binary.ByteOrder {
 }
 
 // InitPerfMap initializes a perf map with a receiver channel, with a default page_cnt.
-func InitPerfMap(table *Table, receiverChan chan []byte, lostChan chan uint64) (*PerfMap, error) {
-	return InitPerfMapWithPageCnt(table, receiverChan, lostChan, BPF_PERF_READER_PAGE_CNT)
+func InitPerfMap(table *Table, receiverChan chan []byte, lostChan chan uint64, handler func([]byte)) (*PerfMap, error) {
+	return InitPerfMapWithPageCnt(table, receiverChan, lostChan, handler, BPF_PERF_READER_PAGE_CNT)
 }
 
 // InitPerfMapWithPageCnt initializes a perf map with a receiver channel with a specified page_cnt.
-func InitPerfMapWithPageCnt(table *Table, receiverChan chan []byte, lostChan chan uint64, pageCnt int) (*PerfMap, error) {
+func InitPerfMapWithPageCnt(table *Table, receiverChan chan []byte, lostChan chan uint64, handler func([]byte), pageCnt int) (*PerfMap, error) {
 	fd := table.Config()["fd"].(int)
 	keySize := table.Config()["key_size"].(uint64)
 	leafSize := table.Config()["leaf_size"].(uint64)
@@ -135,8 +141,9 @@ func InitPerfMapWithPageCnt(table *Table, receiverChan chan []byte, lostChan cha
 	}
 
 	callbackDataIndex := registerCallback(&callbackData{
-		receiverChan,
-		lostChan,
+		receiverChan: receiverChan,
+		lostChan: lostChan,
+		handler: handler,
 	})
 
 	key := make([]byte, keySize)
