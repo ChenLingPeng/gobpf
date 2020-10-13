@@ -42,6 +42,7 @@ type PerfMap struct {
 	table   *Table
 	readers []*C.struct_perf_reader
 	stop    chan bool
+	PollCnt int
 }
 
 type callbackData struct {
@@ -206,6 +207,7 @@ func (pm *PerfMap) poll(timeout int) {
 		case <-pm.stop:
 			return
 		default:
+			pm.PollCnt++
 			C.perf_reader_poll(C.int(len(pm.readers)), &pm.readers[0], C.int(timeout))
 		}
 	}
