@@ -184,6 +184,7 @@ func InitPerfMapWithPageCnt(table *Table, receiverChan chan []byte, lostChan cha
 		table,
 		readers,
 		make(chan bool),
+		0,
 	}, nil
 }
 
